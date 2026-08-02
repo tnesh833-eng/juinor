@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Password Strength Checker — DecodeLabs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A1420;
+    --bg-2: #0D1B2A;
+    --grid: rgba(90,140,190,0.10);
+    --grid-strong: rgba(90,140,190,0.18);
+    --panel: #101E30;
+    --panel-line: #1E3A57;
+    --text: #E7EEF6;
+    --text-dim: #8CA3BC;
+    --cyan: #4FD3F0;
+    --blue: #3E82C9;
+    --green: #34D399;
+    --amber: #F5A524;
+    --red: #F0553F;
+    --mono: 'Share Tech Mono', monospace;
+    --mono-display: 'VT323', monospace;
+    --sans: 'Share Tech Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
+
+  @keyframes fadeUp{
+    from{opacity:0; transform:translateY(16px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  @keyframes scanMove{
+    0%{background-position:-120% 0;}
+    100%{background-position:220% 0;}
+  }
+  @keyframes popIn{
+    0%{transform:scale(.75); opacity:.4;}
+    60%{transform:scale(1.15);}
+    100%{transform:scale(1); opacity:1;}
+  }
+  @keyframes barGrow{
+    from{transform:scaleY(.3); opacity:.3;}
+    to{transform:scaleY(1); opacity:1;}
+  }
+  @keyframes shakeIn{
+    0%{opacity:0; transform:translateY(-4px) translateX(-6px);}
+    35%{opacity:1; transform:translateX(4px);}
+    60%{transform:translateX(-3px);}
+    80%{transform:translateX(2px);}
+    100%{transform:translateX(0);}
+  }
+  @keyframes verdictFlash{
+    0%{text-shadow:0 0 0 transparent;}
+    40%{text-shadow:0 0 14px currentColor;}
+    100%{text-shadow:0 0 0 transparent;}
+  }
+  @keyframes caretBlink{
+    0%,100%{opacity:1;} 50%{opacity:0;}
+  }
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% 0%, rgba(62,130,201,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 100%, rgba(79,211,240,0.08), transparent 60%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height:100vh;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      radial-gradient(ellipse 900px 500px at 15% 0%, rgba(62,130,201,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 100%, rgba(79,211,240,0.08), transparent 60%);
+    background-size: 34px 34px, 34px 34px, auto, auto;
+    padding: 56px 20px 80px;
+  }
+
+  .wrap{max-width: 880px; margin: 0 auto; position: relative; z-index: 2;}
+
+  /* hacker-theme background layers */
+  #matrixRain{
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    z-index: 0; opacity: 0.4; pointer-events: none;
+  }
+  .scanlines{
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg, rgba(180,220,255,0.035) 0px, rgba(180,220,255,0.035) 1px,
+      transparent 1px, transparent 3px
+    );
+    background-size: 100% 3px;
+    animation: scanlineDrift 9s linear infinite;
+    mix-blend-mode: overlay;
+  }
+  .vignette{
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(ellipse 80% 70% at 50% 40%, transparent 40%, rgba(6,12,20,0.75) 100%);
+  }
+  @keyframes scanlineDrift{
+    from{background-position: 0 0;}
+    to{background-position: 0 300px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #matrixRain, .scanlines{ display:none; }
+  }
+
+  /* header */
+  .eyebrow{
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    display:flex; align-items:center; gap:10px;
+    margin-bottom: 18px;
+    animation: fadeUp .6s ease both;
+  }
+  .eyebrow::before{
+    content:"";
+    width:8px; height:8px; border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 10px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  h1{
+    font-family: var(--mono);
+    font-weight: 800;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.08;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+    animation: fadeUp .6s ease .08s both;
+  }
+  h1 span{color: var(--cyan);}
+
+  .sub{
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 560px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+    animation: fadeUp .6s ease .16s both;
+  }
+
+  /* main panel */
+  .console{
+    background: linear-gradient(180deg, rgba(16,30,48,0.9), rgba(13,25,40,0.9));
+    border: 1px solid var(--panel-line);
+    border-radius: 14px;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+    animation: fadeUp .6s ease .24s both;
+    transition: box-shadow .3s ease, border-color .3s ease;
+  }
+  .console:hover{
+    border-color: rgba(79,211,240,0.3);
+    box-shadow: 0 30px 70px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(79,211,240,0.06), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .console::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    background-size: 50% 100%;
+    background-repeat: no-repeat;
+    opacity: .6;
+    animation: scanMove 3.6s linear infinite;
+  }
+  .console-head{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family: var(--mono); font-size: 11px; letter-spacing:.1em;
+    color: var(--text-dim); text-transform: uppercase;
+    margin-bottom: 22px; padding-bottom: 16px;
+    border-bottom: 1px dashed var(--panel-line);
+  }
+  .console-head b{color:var(--text); font-weight:600;}
+  .dots{display:flex; gap:6px;}
+  .dots span{width:8px;height:8px;border-radius:50%;background:var(--panel-line);}
+
+  .field{position:relative; margin-bottom: 26px;}
+  .field label{
+    display:block; font-family: var(--mono); font-size:11px;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .input-row{position:relative; display:flex; align-items:center;}
+  input#pwd{
+    width:100%;
+    background: #08111C;
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    padding: 16px 52px 16px 18px;
+    font-family: var(--mono);
+    font-size: 17px;
+    color: var(--text);
+    letter-spacing: 0.02em;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  input#pwd:focus{
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(79,211,240,0.12);
+  }
+  .toggle{
+    position:absolute; right:14px; background:none; border:none; cursor:pointer;
+    color: var(--text-dim); font-family: var(--mono); font-size: 11px;
+    letter-spacing:.08em; text-transform:uppercase;
+    padding: 6px 8px;
+  }
+  .toggle:hover{color:var(--cyan);}
+
+  /* meter */
+  .meter-row{display:flex; align-items:center; gap:14px; margin-bottom: 6px;}
+  .meter{
+    flex:1; height:10px; border-radius:6px; background:#0A1826;
+    border:1px solid var(--panel-line); overflow:hidden; display:flex; gap:3px; padding:2px;
+  }
+  .meter i{
+    flex:1; border-radius:3px; background:#152538;
+    transform-origin: bottom;
+    transition: background .25s, box-shadow .25s, transform .25s ease;
+  }
+  .meter i.on{
+    background: var(--bar-color, var(--green));
+    box-shadow: 0 0 8px var(--bar-color, var(--green));
+    animation: barGrow .3s ease;
+  }
+  .verdict{
+    font-family: var(--mono); font-weight:700; font-size:13px;
+    letter-spacing:.08em; text-transform:uppercase;
+    min-width: 92px; text-align:right;
+    transition: color .25s ease;
+  }
+  .verdict.flash{ animation: verdictFlash .7s ease; }
+
+  .status-line{
+    font-family: var(--mono); font-size: 12px; color: var(--text-dim);
+    margin-top: 8px; min-height: 16px;
+  }
+
+  /* checklist grid */
+  .grid2{
+    display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+    margin-top: 28px;
+  }
+  @media (max-width: 560px){ .grid2{grid-template-columns: 1fr;} }
+
+  .check{
+    display:flex; align-items:center; gap:10px;
+    background: #0A1826; border:1px solid var(--panel-line);
+    border-radius: 9px; padding: 12px 14px;
+    font-family: var(--mono); font-size: 13px; color: var(--text-dim);
+    transition: all .25s ease;
+  }
+  .check .dot{
+    width:16px; height:16px; border-radius:50%; flex-shrink:0;
+    border: 1.5px solid var(--panel-line);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 10px; color: transparent;
+    transition: all .2s;
+  }
+  .check.pass{color: var(--text); border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.06); transform: translateY(-1px);}
+  .check.pass .dot{background: var(--green); border-color: var(--green); color:#04231a; animation: popIn .35s ease;}
+  .check.pass .dot::after{content:"✓";}
+  .check.fail .dot::after{content:"·";}
+
+  /* analysis panel */
+  .analysis{
+    margin-top: 28px; padding-top: 24px; border-top: 1px dashed var(--panel-line);
+    display:grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 560px){ .analysis{grid-template-columns: 1fr;} }
+  .stat-label{
+    font-family: var(--mono); font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; color: var(--text-dim); margin-bottom:6px;
+  }
+  .stat-value{
+    font-family: var(--mono); font-size: 20px; font-weight:700; color: var(--cyan);
+    transition: color .2s ease;
+  }
+  .stat-value small{font-size:12px; color:var(--text-dim); font-weight:500;}
+
+  .breach-warn{
+    margin-top: 0; max-height:0; opacity:0; overflow:hidden;
+    background: rgba(240,85,63,0.08); border:1px solid transparent;
+    border-radius: 10px; padding: 0 16px;
+    font-family: var(--mono); font-size: 12.5px; color: #ff9a8a;
+    line-height:1.6;
+    transition: max-height .3s ease, opacity .2s ease, margin-top .3s ease, padding .3s ease, border-color .3s ease;
+  }
+  .breach-warn.show{
+    margin-top: 20px; max-height:120px; opacity:1; padding: 14px 16px;
+    border-color: rgba(240,85,63,0.35);
+    animation: shakeIn .4s ease;
+  }
+
+</style>
+</head>
+<body>
+<canvas id="matrixRain"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="wrap">
+
+  <div class="eyebrow">DecodeLabs · Junior Analyst Console · Project 01</div>
+  <h1>Password Strength <span>Checker</span></h1>
+  <p class="sub">Type a password below. The console validates length, character variety, and known-breach exposure in real time — pure string logic, no network calls, nothing stored or transmitted.</p>
+
+  <div class="console">
+    <div class="console-head">
+      <span>module: <b>validator.core</b></span>
+      <div class="dots"><span></span><span></span><span></span></div>
+    </div>
+
+    <div class="field">
+      <label for="pwd">Input string</label>
+      <div class="input-row">
+        <input type="password" id="pwd" placeholder="Start typing a password…" autocomplete="off" spellcheck="false">
+        <button class="toggle" id="toggleBtn" type="button">Show</button>
+      </div>
+    </div>
+
+    <div class="meter-row">
+      <div class="meter" id="meter">
+        <i></i><i></i><i></i><i></i>
+      </div>
+      <div class="verdict" id="verdict" style="color:var(--text-dim)">— IDLE —</div>
+    </div>
+    <div class="status-line" id="statusLine">Awaiting input…</div>
+
+    <div class="grid2" id="checklist">
+      <div class="check fail" data-k="len"><span class="dot"></span> 8+ characters</div>
+      <div class="check fail" data-k="upper"><span class="dot"></span> Uppercase letter</div>
+      <div class="check fail" data-k="digit"><span class="dot"></span> Number</div>
+      <div class="check fail" data-k="symbol"><span class="dot"></span> Symbol</div>
+    </div>
+
+    <div class="analysis">
+      <div>
+        <div class="stat-label">Search space</div>
+        <div class="stat-value" id="statSpace">95 <small>chars (ASCII)</small></div>
+      </div>
+      <div>
+        <div class="stat-label">Estimated entropy</div>
+        <div class="stat-value" id="statEntropy">0 <small>bits</small></div>
+      </div>
+    </div>
+
+    <div class="breach-warn" id="breachWarn">
+      ⚠ THIS STRING APPEARS ON A KNOWN LEAKED-PASSWORD LIST. Length and symbols won't save it — attackers try these first.
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---- Hacker-theme background: matrix rain ----
+(function(){
+  const canvas = document.getElementById('matrixRain');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return;
+
+  const chars = '01ABCDEF{}<>/#$%&*!?01010101アイウエオカキクケコ01';
+  const fontSize = 15;
+  let columns, drops;
+  let width, height;
+
+  function resize(){
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    columns = Math.floor(width / fontSize);
+    drops = new Array(columns).fill(0).map(() => Math.floor(Math.random() * -50));
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function draw(){
+    ctx.fillStyle = 'rgba(6, 12, 20, 0.08)';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.font = fontSize + 'px "JetBrains Mono", monospace';
+
+    for (let i = 0; i < columns; i++){
+      const char = chars[Math.floor(Math.random() * chars.length)];
+      const x = i * fontSize;
+      const y = drops[i] * fontSize;
+
+      // brighter leading character, dimmer cyan trail
+      ctx.fillStyle = Math.random() > 0.96 ? 'rgba(231,238,246,0.9)' : 'rgba(79,211,240,0.55)';
+      ctx.fillText(char, x, y);
+
+      if (y > height && Math.random() > 0.975){
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+  }
+
+  setInterval(draw, 45);
+})();
+</script>
+<script>
+(function(){
+  const pwdInput = document.getElementById('pwd');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const meter = document.getElementById('meter');
+  const bars = meter.querySelectorAll('i');
+  const verdict = document.getElementById('verdict');
+  const statusLine = document.getElementById('statusLine');
+  const checklist = document.getElementById('checklist');
+  const statSpace = document.getElementById('statSpace');
+  const statEntropy = document.getElementById('statEntropy');
+  const breachWarn = document.getElementById('breachWarn');
+
+  // small illustrative sample of commonly leaked / breached passwords
+  const commonLeaked = new Set([
+    "123456","password","123456789","12345678","12345","qwerty",
+    "abc123","football","monkey","letmein","111111","iloveyou",
+    "admin","welcome","password1","1234567","dragon","master",
+    "sunshine","princess","qwertyuiop","000000","1q2w3e4r","passw0rd"
+  ]);
+
+  toggleBtn.addEventListener('click', () => {
+    const isPwd = pwdInput.type === 'password';
+    pwdInput.type = isPwd ? 'text' : 'password';
+    toggleBtn.textContent = isPwd ? 'Hide' : 'Show';
+  });
+
+  function analyze(pw){
+    const len = pw.length;
+    const hasUpper = /[A-Z]/.test(pw);
+    const hasLower = /[a-z]/.test(pw);
+    const hasDigit = /[0-9]/.test(pw);
+    const hasSymbol = /[^A-Za-z0-9]/.test(pw);
+    const hasUnicode = [...pw].some(ch => ch.codePointAt(0) > 127);
+
+    let poolSize = 0;
+    if (hasLower) poolSize += 26;
+    if (hasUpper) poolSize += 26;
+    if (hasDigit) poolSize += 10;
+    if (hasSymbol) poolSize += 33;
+    if (hasUnicode) poolSize = 143000;
+    if (poolSize === 0) poolSize = 1;
+
+    const entropy = len > 0 ? Math.round(len * Math.log2(poolSize)) : 0;
+    const varietyCount = [hasUpper, hasLower, hasDigit, hasSymbol].filter(Boolean).length;
+    const isLeaked = commonLeaked.has(pw.toLowerCase());
+
+    let score = 0;
+    if (len >= 8) score++;
+    if (len >= 12) score++;
+    if (varietyCount >= 3) score++;
+    if (varietyCount === 4) score++;
+    if (len < 8 || isLeaked) score = 0;
+
+    let label, color;
+    if (len === 0){ label = 'IDLE'; color = 'var(--text-dim)'; }
+    else if (score <= 1){ label = 'WEAK'; color = 'var(--red)'; }
+    else if (score <= 3){ label = 'MEDIUM'; color = 'var(--amber)'; }
+    else { label = 'STRONG'; color = 'var(--green)'; }
+
+    return { len, hasUpper, hasDigit, hasSymbol, hasUnicode, poolSize, entropy, isLeaked, score, label, color };
+  }
+
+  let lastLabel = null;
+  let lastPassState = {};
+
+  function render(pw){
+    const r = analyze(pw);
+
+    // bars — only replay the grow-pop animation on bars that just turned on
+    bars.forEach((bar, i) => {
+      const active = pw.length > 0 && i < r.score;
+      const wasOn = bar.classList.contains('on');
+      bar.style.setProperty('--bar-color', r.color);
+      if (active && !wasOn){
+        bar.classList.remove('on');
+        void bar.offsetWidth; // reflow to restart animation
+        bar.classList.add('on');
+      } else {
+        bar.classList.toggle('on', active);
+      }
+    });
+
+    verdict.textContent = pw.length === 0 ? '— IDLE —' : '— ' + r.label + ' —';
+    verdict.style.color = r.color;
+    if (r.label !== lastLabel && pw.length > 0){
+      verdict.classList.remove('flash');
+      void verdict.offsetWidth;
+      verdict.classList.add('flash');
+    }
+    lastLabel = r.label;
+
+    // checklist — replay pop only on newly-passed checks
+    const map = { len: r.len >= 8, upper: r.hasUpper, digit: r.hasDigit, symbol: r.hasSymbol };
+    checklist.querySelectorAll('.check').forEach(el => {
+      const key = el.dataset.k;
+      const nowPass = map[key];
+      const justPassed = nowPass && !lastPassState[key];
+      if (justPassed){
+        el.classList.remove('pass');
+        void el.offsetWidth;
+      }
+      el.classList.toggle('pass', nowPass);
+      el.classList.toggle('fail', !nowPass);
+      lastPassState[key] = nowPass;
+    });
+
+    // stats
+    statSpace.innerHTML = r.hasUnicode
+      ? '143,000 <small>chars (unicode)</small>'
+      : r.poolSize + ' <small>chars (ascii)</small>';
+    statEntropy.innerHTML = r.entropy + ' <small>bits</small>';
+
+    // breach warning
+    breachWarn.classList.toggle('show', r.isLeaked);
+
+    // status line
+    if (pw.length === 0){
+      statusLine.textContent = 'Awaiting input…';
+    } else if (r.len < 8) {
+      statusLine.textContent = `Immediate fail — ${8 - r.len} more character(s) needed to clear the length gate.`;
+    } else if (r.isLeaked) {
+      statusLine.textContent = 'Rejected — string matches a known breached-password corpus.';
+    } else {
+      const missing = [];
+      if (!r.hasUpper) missing.push('an uppercase letter');
+      if (!r.hasDigit) missing.push('a number');
+      if (!r.hasSymbol) missing.push('a symbol');
+      statusLine.textContent = missing.length
+        ? `Passed length gate. Add ${missing.join(', ')} to raise strength.`
+        : `All checks passed. ${r.entropy}-bit search space — solid.`;
+    }
+  }
+
+  pwdInput.addEventListener('input', (e) => render(e.target.value));
+  render('');
+})();
+</script>
+</body>
+</html>
